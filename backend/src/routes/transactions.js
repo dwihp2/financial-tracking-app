@@ -16,8 +16,8 @@
  * narrowing hint, not input worth erroring over.
  */
 import { Router } from 'express'
-import { NewTransactionSchema } from '../schema.js'
-import { createTransaction, getTransaction, listTransactions } from '../store.js'
+import { NewTransactionSchema, UpdateTransactionSchema } from '../schema.js'
+import { createTransaction, deleteTransaction, getTransaction, listTransactions, updateTransaction } from '../store.js'
 
 const router = Router()
 
@@ -167,65 +167,32 @@ router.post('/transactions', async (req, res) => {
   res.status(201).json(created)
 })
 
-/**
- * TODO (exercise — update): implement PATCH /api/transactions/:id.
- *
- * Everything you need is already here — only the body of this handler is missing:
- *
- *   1. Validate the patch. Import `UpdateTransactionSchema` from '../schema.js'
- *      (same import line as `NewTransactionSchema` above) and run
- *      `const parsed = UpdateTransactionSchema.safeParse(req.body)`.
- *      It is `NewTransactionSchema.partial()`, so ANY subset of fields is
- *      valid — including an empty object. On failure, answer exactly like the
- *      POST route does:
- *        res.status(400).json({ error: { message: 'Invalid transaction', details: formatIssues(parsed.error) } })
- *
- *   2. Save it with the store helper — no persistence code needed here:
- *        const updated = await updateTransaction(req.params.id, parsed.data)
- *      `updateTransaction` already exists in store.js, merges the patch into
- *      the row, keeps `id` immutable and writes the file atomically. Note that
- *      NOTHING TESTS IT YET — you are its first caller.
- *      Careful with the merge: `parsed.data` always contains `currency`
- *      (the schema default is "USD"), so `{ ...existing, ...parsed.data }`
- *      silently rewrites currency even when the client did not send it.
- *      `updateTransaction` handles that for you — pass the patch straight in.
- *
- *   3. Handle the missing id: `updateTransaction` returns `undefined` when the
- *      id is unknown, so reply 404 with the same shape as GET above:
- *        res.status(404).json({ error: { message: `No transaction with id "${req.params.id}"` } })
- *
- *   4. On success reply `200` with the UPDATED row (`res.json(updated)`) — the
- *      client needs the new values, so do not answer 204 here.
- *
- * Until then this stays a 501 so the frontend gets a clear "not built yet"
- * instead of a silent success.
- */
-router.patch('/transactions/:id', (_req, res) => {
-  res.status(501).json({ error: { message: 'Not implemented yet' } })
+router.patch('/transactions/:id', async (req, res) => {
+  const parsed = UpdateTransactionSchema.safeParse(req.body)
+
+  if (!parsed.success) {
+    return res.status(400).json({ error: { message: 'Invalid transaction', details: formatIssues(parsed.error) } })
+  }
+
+  const updated = await updateTransaction(req.params.id, parsed.data)
+
+  if (!updated) {
+    return res.status(404).json({ error: { message: `No transaction with id "${req.params.id}"` } })
+  }
+
+  res.status(200).json(updated)
 })
 
-/**
- * TODO (exercise — delete): implement DELETE /api/transactions/:id.
- *
- * The simplest of the five CRUD operations — there is no body to validate:
- *
- *   1. Call the store helper (already in store.js, also untested):
- *        const removed = await deleteTransaction(req.params.id)
- *      It removes the row and persists atomically. It returns the REMOVED row,
- *      or `undefined` when no row has that id.
- *
- *   2. Missing id -> 404, same shape as GET/PATCH:
- *        res.status(404).json({ error: { message: `No transaction with id "${req.params.id}"` } })
- *
- *   3. Success -> `204 No Content` with NO body: `res.status(204).end()`.
- *      (Returning `200` with the deleted row is also defensible REST; pick one
- *      and keep the frontend in step with it.)
- *
- * Deleting is destructive and there is no undo beyond `npm run seed`, so the
- * 404 check in step 2 is what keeps a typo'd id from looking like a success.
- */
-router.delete('/transactions/:id', (_req, res) => {
-  res.status(501).json({ error: { message: 'Not implemented yet' } })
+router.delete('/transactions/:id', async (req, res) => {
+  const deleted = await deleteTransaction(req.params.id)
+
+  if (!deleted) {
+    return res.status(404).json({ error: { message: `No transaction with id "${req.params.id}"` } })
+  }
+
+  // 200 + the removed row (rather than 204 + no body) so the client can offer
+  // an Undo without a second GET. Keep frontend/src/lib/api.ts in step.
+  res.status(200).json(deleted)
 })
 
 export default router

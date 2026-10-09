@@ -11,12 +11,12 @@
  *                bundled JSON seed and writes are applied locally. This keeps
  *                the demo working with a single `npm run dev`.
  *
- * TODO (exercise — update): add `updateTransaction(id, patch)` -> PATCH /api/transactions/:id
- * TODO (exercise — delete): add `deleteTransaction(id)`       -> DELETE /api/transactions/:id
- *                            Both already have backend stubs and store helpers. See CRUD-EXERCISE.md.
+ * API surface: listTransactions, createTransaction, updateTransaction,
+ * deleteTransaction. The first two have offline branches; the last two still
+ * need them — see the TODO on each.
  */
 import transactionsData from '@/data/transactions.json'
-import type { NewTransaction, Transaction } from '@/types'
+import type { NewTransaction, Transaction, TransactionPatch } from '@/types'
 
 const API_BASE = '/api'
 
@@ -100,4 +100,47 @@ export async function createTransaction(input: NewTransaction): Promise<Transact
   // Offline: apply it locally so the UI still demos end to end.
   await delay(LATENCY_MS)
   return { ...input, id: crypto.randomUUID() }
+}
+
+/**
+ * Update a transaction.
+ *
+ * TODO (exercise — update): unlike createTransaction above, this has no
+ * offline branch yet, so with the backend stopped it throws a raw
+ * "Failed to fetch" instead of degrading gracefully. Mirror the
+ * `isBackendReachable()` pattern from createTransaction to fix that.
+ */
+export async function updateTransaction(
+  id: string,
+  patch: TransactionPatch,
+): Promise<Transaction> {
+  const response = await fetch(`${API_BASE}/transactions/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  })
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, 'Could not update the transaction'))
+  }
+
+  return (await response.json()) as Transaction
+}
+
+/**
+ * Delete a transaction and return the removed row.
+ *
+ * The API answers `200` with the row (not `204`), deliberately: having the
+ * removed row in hand is what lets the caller offer an Undo without a re-fetch.
+ *
+ * TODO (exercise — delete): no offline branch yet — see updateTransaction above.
+ */
+export async function deleteTransaction(id: string): Promise<Transaction> {
+  const response = await fetch(`${API_BASE}/transactions/${id}`, { method: 'DELETE' })
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, 'Could not delete the transaction'))
+  }
+
+  return (await response.json()) as Transaction
 }

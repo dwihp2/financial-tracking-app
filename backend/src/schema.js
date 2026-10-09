@@ -42,26 +42,28 @@ export const TransactionSchema = z.object({
 /**
  * A `POST /api/transactions` body: the same fields, minus `id` (the server
  * generates it). `currency` is optional and defaults to "USD".
- * Unknown keys are stripped, so a client cannot smuggle in its own `id`.
+ * `.strict()` REJECTS unknown keys rather than stripping them, so a client
+ * cannot smuggle in its own `id` — it gets a 400 instead.
  */
-export const NewTransactionSchema = z.object({
-  cardName: z.string().trim().min(1),
-  isCredit: z.boolean(),
-  category: z.string().trim().min(1),
-  amount,
-  date,
-  currency,
-})
+export const NewTransactionSchema = TransactionSchema.omit({ id: true }).strict()
 
 /**
  * A `PATCH /api/transactions/:id` body: every field optional.
  *
- * Gotcha worth knowing: `currency` keeps its "USD" default, so a successfully
- * parsed patch ALWAYS has a `currency` key, even when the request omitted it.
- * Spread the patch over the existing row deliberately — see the
- * TODO (exercise — update) note in src/routes/transactions.js.
+ * `currency` is omitted ON PURPOSE. It carries a "USD" `.default()`, and a
+ * default on a partial-update schema is injected into every parsed patch — so
+ * `PATCH { amount: 5 }` would quietly rewrite the row's currency to "USD".
+ * Defaults belong on create, not on update.
+ *
+ * Consequence: `currency` is immutable after creation, and sending it is
+ * rejected as an unknown key (400) rather than silently ignored. That is the
+ * intended behaviour — relabelling a recorded amount in a different currency
+ * would misrepresent what actually happened.
+ *
+ * TODO: if you ever add another `.default()` to NewTransactionSchema, omit that
+ * field here too, or the same bug returns for it.
  */
-export const UpdateTransactionSchema = NewTransactionSchema.partial()
+export const UpdateTransactionSchema = NewTransactionSchema.omit({ currency: true }).partial()
 
 /**
  * Types inferred from the schemas above. This is a JavaScript project, so the

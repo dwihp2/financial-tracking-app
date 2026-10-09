@@ -32,6 +32,7 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' })
 })
 
+// Transaction route
 app.use('/api', transactionsRouter)
 
 // Anything that fell through the routes above is a 404. Same error shape as

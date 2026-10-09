@@ -19,6 +19,16 @@ export interface Transaction {
 /** The shape used to create a new transaction (the API assigns `id`). */
 export type NewTransaction = Omit<Transaction, 'id'>
 
+/**
+ * A PATCH body: every field optional.
+ *
+ * `currency` is excluded because the backend's `UpdateTransactionSchema` omits
+ * it — a recorded amount's currency is immutable after creation, and sending
+ * it is rejected with a 400. Keeping the type in step means a caller cannot
+ * send something the API will refuse.
+ */
+export type TransactionPatch = Omit<Partial<NewTransaction>, 'currency'>
+
 /** Which money direction to show. `all` applies no direction filter. */
 export type Direction = 'all' | 'in' | 'out'
 

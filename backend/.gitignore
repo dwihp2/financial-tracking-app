@@ -10,3 +10,5 @@ src/data/transactions.json
 # Half-written temp files from the atomic save in src/store.js, in case a
 # crash ever leaves one behind.
 src/data/transactions.json.*.tmp
+
+/src/generated/prisma

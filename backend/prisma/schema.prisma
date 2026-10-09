@@ -1,0 +1,92 @@
+// Prisma schema — https://pris.ly/d/prisma-schema
+//
+// The connection string is deliberately NOT in this file. Prisma 7 keeps it in
+// `prisma7.config.ts`, which reads DATABASE_URL from `.env` (see
+// `.env.example`). That keeps credentials out of a committed file.
+
+generator client {
+  // The legacy generator: emits plain JavaScript into node_modules/@prisma/client,
+  // which is what this backend (plain ESM, no build step) needs.
+  //
+  // TODO (exercise — optional): if you ever move the backend to TypeScript,
+  // swap this for the modern generator:
+  //   provider               = "prisma-client"
+  //   output                 = "../src/generated/prisma"
+  //   generatedFileExtension = "ts"
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ===========================================================================
+// TODO (exercise — schema): write the Transaction model below.
+//
+// The shape you are storing is already fixed — by the 1209 rows in
+// `src/data/seed.json` and by the zod schema in `src/schema.js`:
+//
+//   { "id": "UBxZ2J8fb4nhjq0_aFrPB",
+//     "cardName": "Personal Debit Card",
+//     "isCredit": false,
+//     "category": "interest",
+//     "amount": 20,
+//     "date": "2025-07-30T16:00:00.000Z",
+//     "currency": "USD" }
+//
+// A starting point to react to — do not just uncomment it, decide:
+//
+//   model Transaction {
+//     id       String   @id @default(uuid())
+//     cardName String
+//     isCredit Boolean
+//     category String
+//     amount   Decimal  @db.Decimal(12, 2)
+//     date     DateTime
+//     currency String   @default("USD")
+//   }
+//
+// Decisions worth being able to defend in an interview:
+//
+//  1. amount — Decimal or Float? A Float accumulates binary rounding error on
+//     money. What does Prisma map Decimal to in JavaScript, and what does that
+//     mean for `src/schema.js`, which currently validates `amount` as
+//     `z.number()`? This is the most important call in the model.
+//
+//  2. Indexes. The API filters by `date` (month), `cardName`, `category`,
+//     `direction` and `search`, and always orders by `date` descending. Which
+//     of those does Postgres actually need an @@index for? Add them.
+//
+//  3. Timestamps. Do you want `createdAt` / `updatedAt`? If so you need
+//     `@default(now())` and `@updatedAt`. Note neither exists in the seed — so
+//     what value do the 1209 backfilled rows get?
+//
+//  4. cardName and category are plain strings today. Should they become
+//     related tables (`Card`, `Category`) with foreign keys? What does that buy
+//     you (rename a card in one place, referential integrity, smaller rows) and
+//     what does it cost for the 1209 existing rows and the current API?
+//
+//  5. Should `category` be a Prisma `enum`? Careful: money-in vs money-out is
+//     *derived* from the category (see `frontend/src/lib/money.ts`). Once the
+//     database owns the data, where should that rule live — the app, or a
+//     column? What breaks if someone adds a category and forgets the rule?
+//
+//  6. `@@map("transactions")` for a plural table name? Prisma's convention is
+//     a singular model over a plural table. Your call, but be consistent.
+//
+// When the model exists:
+//   npm run db:migrate    # create + apply the first migration
+//   npm run db:generate   # regenerate the JS client
+//
+// Until then `npm run db:generate` still SUCCEEDS and the connection still
+// works — the client just has no model delegates yet:
+//
+//   prisma.$queryRaw`select 1`   -> works (verified against this database)
+//   prisma.transaction           -> undefined
+//
+// So you can prove DATABASE_URL is correct before writing any schema at all:
+//
+//   node --input-type=module -e "import('./src/db.js').then(async (m) => {
+//     console.log(await m.prisma.\$queryRaw\`select current_database()\`)
+//     await m.disconnectPrisma() })"
+// ===========================================================================

@@ -3,10 +3,11 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
-  "description": "Express REST API for the Financial Tracking App — OUT OF SCOPE (later exercise).",
+  "description": "Express REST API for the Financial Tracking App (CRUD exercise).",
   "scripts": {
     "dev": "node --watch src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "seed": "node src/seed.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

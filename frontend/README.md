@@ -1,32 +1,56 @@
-# React + TypeScript + Vite
+# Frontend — Financial Tracking
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React 19 + Vite + TypeScript + Tailwind v4 + shadcn/ui.
 
-Currently, two official plugins are available:
+See the [root README](../README.md) for the full picture, and
+[CRUD-EXERCISE.md](../CRUD-EXERCISE.md) for the backend/CRUD tasks.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Scripts
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev       # http://localhost:5173
+npm run build     # tsc -b && vite build
+npm run lint      # oxlint
+npm run preview   # serve the production build
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Layout
+
+```
+src/
+├── components/
+│   ├── ui/                     # shadcn/ui primitives (generated — avoid hand-editing)
+│   ├── AddTransactionDialog.tsx  # CREATE — the worked CRUD reference
+│   ├── FinancialSummary.tsx      # Money In / Money Out / Balance cards
+│   ├── Filter.tsx                # month, direction, search, card, category
+│   ├── ThemeToggle.tsx           # light/dark switch
+│   └── TransactionTable.tsx      # deliberately a plain <table>
+├── lib/
+│   ├── api.ts                  # data-access seam: live API or seed fallback
+│   ├── money.ts                # isMoneyIn / isMoneyOut / computeMoney / summarize
+│   └── utils.ts                # cn() — re-exported from shadcn
+├── types/index.ts              # Transaction, FilterState, Summary, DEFAULT_FILTERS
+├── data/transactions.json      # offline seed (fallback when the API is down)
+├── App.tsx                     # owns ALL app state and the global calculations
+└── index.css                   # Tailwind v4 theme tokens (light + dark)
+```
+
+## Conventions
+
+- **All app state lives in `App.tsx`** and flows down as props. No context, no
+  global store. See `requirements.md` §3 for the two documented exceptions.
+- Import UI primitives from `@/components/ui/...`, not from a package.
+- Prefer semantic colour tokens (`bg-card`, `text-muted-foreground`,
+  `text-income`, `text-expense`) over raw palette classes (`bg-slate-100`).
+- `tsconfig.app.json` is strict: `noUnusedLocals`, `noUnusedParameters` and
+  `verbatimModuleSyntax` (so type-only imports need `import type`).
+
+## Adding a shadcn component
+
+```bash
+npx shadcn@latest add <component>
+```
+
+This project uses the `radix` base with the `nova` preset (lucide icons, Geist
+font) — see `components.json`.

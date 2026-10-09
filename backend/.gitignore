@@ -1,0 +1,12 @@
+# Dependencies
+node_modules/
+
+# The LIVE transaction store. It is created at runtime from
+# src/data/seed.json (which IS committed) and mutated by POST/PATCH/DELETE,
+# so every run would otherwise show up as a dirty diff. `npm run seed`
+# rebuilds it from the seed at any time.
+src/data/transactions.json
+
+# Half-written temp files from the atomic save in src/store.js, in case a
+# crash ever leaves one behind.
+src/data/transactions.json.*.tmp

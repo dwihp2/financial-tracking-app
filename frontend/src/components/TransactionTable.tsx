@@ -1,17 +1,34 @@
+import type { ReactNode } from 'react'
 import dayjs from 'dayjs'
-import { MONEY_IN_CATEGORIES } from '../types'
-import type { Transaction } from '../types'
+import { SearchX } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
+import { isMoneyIn } from '@/lib/money'
+import { cn } from '@/lib/utils'
+import type { Transaction } from '@/types'
 
 /**
  * TransactionTable — lists the (already filtered) transactions.
  *
+ * DELIBERATELY a plain <table>: the brief asks for a hand-rolled table rather
+ * than the shadcn DataTable recipe. Only the colours were moved onto the
+ * theme's design tokens; the markup is unchanged.
+ *
  * Exercise rule: this component does NOT own state. App passes the
  * filtered list down as `transactions`. Filtering happens in App; this
  * component only handles local presentation (date/currency formatting,
- * sorting, colors).
+ * sorting, colours).
  */
 interface TransactionTableProps {
   transactions: Transaction[]
+  /** Optional header slot — used for the "Add transaction" button. */
+  actions?: ReactNode
 }
 
 /** Local formatting — currency, e.g. "$12.00". */
@@ -27,70 +44,113 @@ function formatDate(isoDate: string): string {
   return dayjs(isoDate).format('MMM D, YYYY')
 }
 
-/** Whether a category counts as money in (see types). */
-export function isMoneyIn(category: string): boolean {
-  return (MONEY_IN_CATEGORIES as readonly string[]).includes(category)
-}
-
-export function isMoneyOut(category: string): boolean {
-  return !isMoneyIn(category)
-}
-
-export default function TransactionTable({ transactions }: TransactionTableProps) {
+export default function TransactionTable({ transactions, actions }: TransactionTableProps) {
   // Local display concern: newest transactions first.
-  const sorted = [...transactions].sort((a, b) =>
-    dayjs(b.date).valueOf() - dayjs(a.date).valueOf(),
+  const sorted = [...transactions].sort(
+    (a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf(),
   )
 
   return (
     <section
       aria-label="Transactions"
-      className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+      className="mt-6 overflow-hidden rounded-xl bg-card text-card-foreground ring-1 ring-foreground/10"
     >
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-              <th className="px-5 py-3 font-medium">Date</th>
-              <th className="px-5 py-3 font-medium">Card</th>
-              <th className="px-5 py-3 font-medium">Category</th>
-              <th className="px-5 py-3 text-right font-medium">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map((t) => (
-              <tr
-                key={t.id}
-                className={`border-b border-slate-100 ${t.amount > 200 ? "bg-red-50" : "border-slate-100"} last:border-0 hover:bg-slate-50`}
-              >
-                <td className="px-5 py-3 text-slate-500">{formatDate(t.date)}</td>
-                <td className="px-5 py-3 text-slate-700">{t.cardName}</td>
-                <td className="px-5 py-3">
-                  <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium capitalize text-slate-600">
-                    {t.category}
-                  </span>
-                </td>
-                <td
-                  className={`px-5 py-3 text-right font-semibold tabular-nums ${isMoneyIn(t.category)
-                    ? 'text-emerald-600'
-                    : 'text-rose-600'
-                    }`}
-                >
-                  {isMoneyIn(t.category) ? '+' : '-'}
-                  {formatCurrency(t.amount, t.currency)}
-                </td>
-              </tr>
-            ))}
-            {sorted.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-5 py-10 text-center text-slate-400">
-                  No transactions found for the selected filters.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-5 py-4">
+        <div className="flex items-center gap-2">
+          <h2 className="font-heading text-sm font-medium">Transactions</h2>
+          <Badge variant="secondary" className="tabular-nums">
+            {sorted.length.toLocaleString()}
+          </Badge>
+        </div>
+        {actions}
       </div>
+
+      {sorted.length === 0 ? (
+        <Empty className="py-12">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <SearchX />
+            </EmptyMedia>
+            <EmptyTitle>No transactions found</EmptyTitle>
+            <EmptyDescription>
+              No rows match the selected filters. Try a different month or clear a
+              filter.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <div className="overflow-x-auto">
+          {/*
+            min-w keeps the table readable on small screens: without it the
+            cells squeeze and "Personal Debit Card" wraps onto three lines.
+            With it, overflow-x-auto gives a normal horizontal scroll instead.
+          */}
+          <table className="w-full min-w-[640px] text-left text-sm">
+            <thead>
+              <tr className="border-b border-border/60 text-xs tracking-wide text-muted-foreground uppercase">
+                <th scope="col" className="px-5 py-3 font-medium">
+                  Date
+                </th>
+                <th scope="col" className="px-5 py-3 font-medium">
+                  Card
+                </th>
+                <th scope="col" className="px-5 py-3 font-medium">
+                  Category
+                </th>
+                <th scope="col" className="px-5 py-3 text-right font-medium">
+                  Amount
+                </th>
+                {/*
+                  TODO (exercise — update/delete): add a right-aligned "Actions"
+                  column here holding a <DropdownMenu> per row (Edit / Delete).
+                  See CRUD-EXERCISE.md.
+                */}
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((t) => {
+                const moneyIn = isMoneyIn(t.category)
+                // Local presentation rule carried over from the original app:
+                // flag unusually large movements (>= $200) with a neutral tint.
+                // TODO (exercise): confirm this is still the intended rule —
+                // it was undocumented and previously rendered as red-50.
+                const isLarge = t.amount > 200
+
+                return (
+                  <tr
+                    key={t.id}
+                    className={cn(
+                      'border-b border-border/40 transition-colors last:border-0',
+                      isLarge ? 'bg-muted/50 hover:bg-muted' : 'hover:bg-muted/40',
+                    )}
+                  >
+                    <td className="px-5 py-3 whitespace-nowrap text-muted-foreground">
+                      {formatDate(t.date)}
+                    </td>
+                    <td className="px-5 py-3 whitespace-nowrap text-foreground">
+                      {t.cardName}
+                    </td>
+                    <td className="px-5 py-3">
+                      <Badge variant="outline" className="capitalize">
+                        {t.category}
+                      </Badge>
+                    </td>
+                    <td
+                      className={cn(
+                        'px-5 py-3 text-right font-semibold tabular-nums',
+                        moneyIn ? 'text-income' : 'text-expense',
+                      )}
+                    >
+                      {moneyIn ? '+' : '-'}
+                      {formatCurrency(t.amount, t.currency)}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   )
 }

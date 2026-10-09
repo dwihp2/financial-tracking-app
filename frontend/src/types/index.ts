@@ -16,17 +16,38 @@ export interface Transaction {
   currency: string
 }
 
+/** The shape used to create a new transaction (the API assigns `id`). */
+export type NewTransaction = Omit<Transaction, 'id'>
+
+/** Which money direction to show. `all` applies no direction filter. */
+export type Direction = 'all' | 'in' | 'out'
+
 /**
  * The filter controls state.
  * - `month` is an ISO date string representing the FIRST day of the selected
- *   month (dayjs), e.g. "2026-03-01".
+ *   month (dayjs), e.g. "2026-03-01". An EMPTY string means "no month filter".
  * - `selectedCards` is the list of card names to include. An EMPTY array
  *   means "All cards" (no card filter applied). Multiple cards can be
  *   selected at once.
+ * - `selectedCategories` works the same way as `selectedCards`, for categories.
+ * - `direction` filters to money in / money out / everything.
+ * - `search` is a free-text match against the card name and category.
  */
 export interface FilterState {
   month: string
   selectedCards: string[]
+  selectedCategories: string[]
+  direction: Direction
+  search: string
+}
+
+/** The filter state with nothing applied — also what "Clear filters" resets to. */
+export const DEFAULT_FILTERS: FilterState = {
+  month: '',
+  selectedCards: [],
+  selectedCategories: [],
+  direction: 'all',
+  search: '',
 }
 
 /** Money-in categories. Everything else is treated as money-out. */

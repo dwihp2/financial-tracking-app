@@ -3,14 +3,19 @@
  *
  * Exercise rule: this component does NOT own any state. It receives the
  * three summary numbers as props from App and only handles local
- * presentation (formatting, colors, layout).
+ * presentation (formatting, colours, layout).
  */
 import type { ReactNode } from 'react'
+import { ArrowDownLeft, ArrowUpRight, Wallet } from 'lucide-react'
+import { Card, CardAction, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 
 interface FinancialSummaryProps {
   moneyIn: number
   moneyOut: number
   balance: number
+  /** How many transactions the totals were computed from (after filtering). */
+  transactionCount: number
 }
 
 /** Local (internal) formatting — lives in the component, not App. */
@@ -25,29 +30,38 @@ export default function FinancialSummary({
   moneyIn,
   moneyOut,
   balance,
+  transactionCount,
 }: FinancialSummaryProps) {
+  // Local (internal) calculation: each direction's share of total movement.
+  const totalMovement = moneyIn + moneyOut
+  const shareOf = (part: number) =>
+    totalMovement === 0 ? 0 : Math.round((part / totalMovement) * 100)
+
   return (
-    <section
-      aria-label="Financial summary"
-      className="grid gap-4 sm:grid-cols-3"
-    >
+    <section aria-label="Financial summary" className="grid gap-4 sm:grid-cols-3">
       <SummaryCard
         label="Money In"
         amount={moneyIn}
-        accent="text-emerald-600"
-        icon={<ArrowUpIcon />}
+        note={`${shareOf(moneyIn)}% of all movement`}
+        icon={<ArrowUpRight />}
+        valueClassName="text-income"
+        chipClassName="bg-income-muted text-income"
       />
       <SummaryCard
         label="Money Out"
         amount={moneyOut}
-        accent="text-rose-600"
-        icon={<ArrowDownIcon />}
+        note={`${shareOf(moneyOut)}% of all movement`}
+        icon={<ArrowDownLeft />}
+        valueClassName="text-expense"
+        chipClassName="bg-expense-muted text-expense"
       />
       <SummaryCard
         label="Balance"
         amount={balance}
-        accent="text-slate-900"
-        icon={<WalletIcon />}
+        note={`Money in minus money out · ${transactionCount.toLocaleString()} transactions`}
+        icon={<Wallet />}
+        valueClassName="text-foreground"
+        chipClassName="bg-muted text-muted-foreground"
       />
     </section>
   )
@@ -56,81 +70,40 @@ export default function FinancialSummary({
 interface SummaryCardProps {
   label: string
   amount: number
-  accent: string
+  note: string
   icon: ReactNode
+  valueClassName: string
+  chipClassName: string
 }
 
-function SummaryCard({ label, amount, accent, icon }: SummaryCardProps) {
+function SummaryCard({
+  label,
+  amount,
+  note,
+  icon,
+  valueClassName,
+  chipClassName,
+}: SummaryCardProps) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-slate-500">{label}</p>
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
-          {icon}
-        </span>
-      </div>
-      <p className={`mt-3 text-2xl font-bold tabular-nums ${accent}`}>
-        {formatCurrency(amount)}
-      </p>
-    </div>
-  )
-}
-
-// Inline icons (small, dependency-free).
-function ArrowUpIcon() {
-  return (
-    <svg
-      className="h-4 w-4"
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      aria-hidden="true"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M5 13l5-5 5 5"
-      />
-    </svg>
-  )
-}
-
-function ArrowDownIcon() {
-  return (
-    <svg
-      className="h-4 w-4"
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      aria-hidden="true"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M15 7l-5 5-5-5"
-      />
-    </svg>
-  )
-}
-
-function WalletIcon() {
-  return (
-    <svg
-      className="h-4 w-4"
-      viewBox="0 0 20 20"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      aria-hidden="true"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M3 5.5A2.5 2.5 0 0 1 5.5 3h9A2.5 2.5 0 0 1 17 5.5V15a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5.5Z"
-      />
-      <path strokeLinecap="round" d="M3 8h14" />
-    </svg>
+    <Card size="sm">
+      <CardHeader>
+        <CardDescription className="font-medium">{label}</CardDescription>
+        <CardAction>
+          <span
+            className={cn(
+              'flex size-8 items-center justify-center rounded-lg [&_svg]:size-4',
+              chipClassName,
+            )}
+            aria-hidden="true"
+          >
+            {icon}
+          </span>
+        </CardAction>
+        <CardTitle className={cn('text-2xl font-semibold tabular-nums', valueClassName)}>
+          {formatCurrency(amount)}
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">{note}</p>
+      </CardHeader>
+    </Card>
   )
 }

@@ -1,25 +1,24 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import dayjs from 'dayjs'
-import FinancialSummary from './components/FinancialSummary'
-import Filter from './components/Filter'
-import TransactionTable, { isMoneyIn, isMoneyOut } from './components/TransactionTable'
-import type { FilterState, Transaction } from './types'
-import transactionsData from './data/transactions.json'
+import FinancialSummary from '@/components/FinancialSummary'
+import Filter from '@/components/Filter'
+import TransactionTable from '@/components/TransactionTable'
+import ThemeToggle from '@/components/ThemeToggle'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Toaster } from '@/components/ui/sonner'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import { listTransactions } from '@/lib/api'
+import { isMoneyIn, isMoneyOut, summarize } from '@/lib/money'
+import { DEFAULT_FILTERS } from '@/types'
+import type { FilterState, Transaction } from '@/types'
 
-type ComputeMoneyT = {
-  trx: Transaction[]
-  type: 'in' | 'out'
-}
+type Theme = 'light' | 'dark'
 
-/**
- * Sum the amounts of transactions whose direction matches `type`.
- * Money-in = isMoneyIn(category); money-out = its complement.
- */
-function computeMoney({ trx, type }: ComputeMoneyT): number {
-  return trx.reduce((total, item) => {
-    const data = type === "in" ? isMoneyIn(item.category) : isMoneyOut(item.category)
-    return data ? total + item.amount : total
-  }, 0)
+/** Local: saved theme wins, otherwise follow the OS preference. */
+function getInitialTheme(): Theme {
+  const stored = localStorage.getItem('fta-theme')
+  if (stored === 'light' || stored === 'dark') return stored
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
 /**
@@ -27,111 +26,202 @@ function computeMoney({ trx, type }: ComputeMoneyT): number {
  *  - ALL state lives here and is passed down to components via props.
  *  - GLOBAL calculations (totals, filtering) happen here.
  *  - Components only do internal/local calculations (e.g. formatting).
- *
- * The core logic is left as `TODO (exercise)` for you to implement.
  */
 export default function App() {
   // ---- Root state ----
+  /** All transactions. The setter is currently only used by the create flow. */
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  /** All transactions loaded from the seed data. */
-  const [transactions] = useState<Transaction[]>(transactionsData)
+  /** Filter state. See DEFAULT_FILTERS in types. */
+  const [filterState, setFilterState] = useState<FilterState>(DEFAULT_FILTERS)
 
-  // Each summary number has its OWN state (defaults to 0).
-  const [moneyIn, setMoneyIn] = useState(0)
-  const [moneyOut, setMoneyOut] = useState(0)
-  const [balance, setBalance] = useState(0)
+  /** UI chrome state — also owned here so there is a single source of truth. */
+  const [theme, setTheme] = useState<Theme>(getInitialTheme)
 
-  /**
-   * Filter state.
-   * - `month` defaults to the FIRST day of the current month via dayjs,
-   *   e.g. "2026-03-01".
-   * - `selectedCards` defaults to [] = "All cards" (no card filter).
-   */
-  const [filterState, setFilterState] = useState<FilterState>({
-    // month: dayjs().startOf('month').format('YYYY-MM-DD'),
-    month: '',
-    selectedCards: [],
-  })
+  // ---- Global calculation: load the data ----
+  // Routed through lib/api.ts so that swapping the bundled JSON for the
+  // Express backend later is a one-file change. See CRUD-EXERCISE.md.
+  useEffect(() => {
+    let cancelled = false
 
-  // Distinct card names, used to populate the Filter card options.
-  const cards: string[] = [...new Set(transactions.map((t) => t.cardName))].sort()
+    listTransactions()
+      .then((rows) => {
+        if (cancelled) return
+        setTransactions(rows)
+        setLoadError(null)
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return
+        setLoadError(
+          error instanceof Error ? error.message : 'Failed to load transactions',
+        )
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // ---- Global calculation: apply the theme class ----
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark')
+    localStorage.setItem('fta-theme', theme)
+  }, [theme])
+
+  // ---- Global calculation: distinct option lists for the filters ----
+  const cards = useMemo(
+    () => [...new Set(transactions.map((t) => t.cardName))].sort(),
+    [transactions],
+  )
+  const categories = useMemo(
+    () => [...new Set(transactions.map((t) => t.category))].sort(),
+    [transactions],
+  )
+  // Newest month first — "YYYY-MM" sorts correctly as a string.
+  const months = useMemo(
+    () =>
+      [...new Set(transactions.map((t) => dayjs(t.date).format('YYYY-MM')))].sort().reverse(),
+    [transactions],
+  )
 
   // ---- Global calculation: apply filters ----
   // Passed to TransactionTable AND used to compute the summary totals.
-  const filteredTransactions: Transaction[] = applyFilters(transactions, filterState)
+  const filteredTransactions = useMemo(
+    () => applyFilters(transactions, filterState),
+    [transactions, filterState],
+  )
 
   // ---- Global calculation: summary numbers ----
-  // Recompute moneyIn / moneyOut / balance whenever the filtered set changes.
-  useEffect(() => {
-    const totalIn = computeMoney({ trx: filteredTransactions, type: 'in' })
-    const totalOut = computeMoney({ trx: filteredTransactions, type: 'out' })
-    setMoneyIn(totalIn)
-    setMoneyOut(totalOut)
-    setBalance(totalIn - totalOut)
-  }, [filteredTransactions])
+  // Derived during render. The original version kept moneyIn/moneyOut/balance
+  // in useState and recomputed them in a useEffect keyed on
+  // `filteredTransactions` — which was a new array on every render, so the
+  // effect re-ran constantly and set state it did not need to. Deriving is
+  // both correct and cheaper (oxlint: `set-state-in-effect`).
+  const summary = useMemo(() => summarize(filteredTransactions), [filteredTransactions])
 
-  // ---- Handlers that update filter state in App (called by <Filter />) ----
-  const handleMonthChange = (month: string) =>
-    setFilterState((prev) => ({ ...prev, month }))
-
-  const handleCardChange = (cards: string[]) =>
-    setFilterState((prev) => ({ ...prev, selectedCards: cards }))
-
-  const handleClearFilters = () =>
-    setFilterState({
-      month: "",
-      selectedCards: [],
-    })
+  // ---- Handlers (called by the child components) ----
+  const handleFilterChange = (next: FilterState) => setFilterState(next)
+  const handleClearFilters = () => setFilterState(DEFAULT_FILTERS)
+  const handleToggleTheme = () =>
+    setTheme((previous) => (previous === 'dark' ? 'light' : 'dark'))
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-6 py-10">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-          Financial Tracking
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Money in, money out, and your balance at a glance.
-        </p>
-      </header>
+    <TooltipProvider>
+      <div className="min-h-svh bg-background text-foreground">
+        <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
+          <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h1 className="font-heading text-3xl font-semibold tracking-tight">
+                Financial Tracking
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Money in, money out, and your balance at a glance.
+              </p>
+            </div>
+            <ThemeToggle theme={theme} onToggle={handleToggleTheme} />
+          </header>
 
-      <FinancialSummary moneyIn={moneyIn} moneyOut={moneyOut} balance={balance} />
+          {loadError ? (
+            <div
+              role="alert"
+              className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+            >
+              Could not load transactions: {loadError}
+            </div>
+          ) : isLoading ? (
+            <LoadingState />
+          ) : (
+            <>
+              <FinancialSummary
+                moneyIn={summary.moneyIn}
+                moneyOut={summary.moneyOut}
+                balance={summary.balance}
+                transactionCount={filteredTransactions.length}
+              />
 
-      <Filter
-        filterState={filterState}
-        cards={cards}
-        onMonthChange={handleMonthChange}
-        onCardChange={handleCardChange}
-        onClear={handleClearFilters}
-      />
+              <Filter
+                filterState={filterState}
+                cards={cards}
+                categories={categories}
+                months={months}
+                resultCount={filteredTransactions.length}
+                totalCount={transactions.length}
+                onFilterChange={handleFilterChange}
+                onClear={handleClearFilters}
+              />
 
-      <TransactionTable transactions={filteredTransactions} />
-    </main>
+              <TransactionTable transactions={filteredTransactions} />
+            </>
+          )}
+        </main>
+
+        <Toaster theme={theme} />
+      </div>
+    </TooltipProvider>
+  )
+}
+
+/** Local: skeleton that mirrors the real layout while the data loads. */
+function LoadingState() {
+  return (
+    <div className="flex flex-col gap-6" aria-busy="true" aria-label="Loading transactions">
+      <div className="grid gap-4 sm:grid-cols-3">
+        {[0, 1, 2].map((index) => (
+          <Skeleton key={index} className="h-[104px] rounded-xl" />
+        ))}
+      </div>
+      <Skeleton className="h-[188px] rounded-xl" />
+      <Skeleton className="h-[420px] rounded-xl" />
+    </div>
   )
 }
 
 /**
- * Apply the active filters (month and/or credit card) to the transactions.
+ * Apply the active filters to the transactions. All filters combine with AND.
  *
- * TODO (exercise): implement the real filtering. For now it returns the full
- * list so the table renders — replace `return transactions` with the filtered
- * result. Remember:
- *   - month filter: keep rows in the same month as `filter.month`
- *     (use dayjs, e.g. dayjs(t.date).isSame(filter.month, 'month'))
- *   - card filter:  keep rows whose cardName is in `filter.selectedCards`
- *     (skip entirely when selectedCards is empty = "all cards")
- *   - both filters combine with AND.
+ * Empty selections mean "no filter":
+ *   - month ''            -> every month
+ *   - selectedCards []    -> every card
+ *   - selectedCategories [] -> every category
+ *   - direction 'all'     -> both money in and money out
+ *   - search ''           -> no text narrowing
  */
 function applyFilters(transactions: Transaction[], filter: FilterState): Transaction[] {
-  // TODO (exercise): implement filter logic here.
+  const selectedMonth = dayjs(filter.month)
+  const search = filter.search.trim().toLowerCase()
 
-  const filteredTx = transactions.filter((tx) => {
-    const selectedDate = dayjs(filter?.month)
-    const dateFilter = filter.month !== "" ? dayjs(tx.date).isSame(selectedDate, 'month') : true
-    const cardFilter = filter.selectedCards.length !== 0 ? filter.selectedCards.includes(tx.cardName) : true
-    return dateFilter && cardFilter
+  return transactions.filter((tx) => {
+    const matchesMonth =
+      filter.month === '' ? true : dayjs(tx.date).isSame(selectedMonth, 'month')
+
+    const matchesCard =
+      filter.selectedCards.length === 0
+        ? true
+        : filter.selectedCards.includes(tx.cardName)
+
+    const matchesCategory =
+      filter.selectedCategories.length === 0
+        ? true
+        : filter.selectedCategories.includes(tx.category)
+
+    const matchesDirection =
+      filter.direction === 'all'
+        ? true
+        : filter.direction === 'in'
+          ? isMoneyIn(tx.category)
+          : isMoneyOut(tx.category)
+
+    const matchesSearch =
+      search === ''
+        ? true
+        : tx.cardName.toLowerCase().includes(search) ||
+          tx.category.toLowerCase().includes(search)
+
+    return matchesMonth && matchesCard && matchesCategory && matchesDirection && matchesSearch
   })
-
-  const result = (filter.month === "" && filter.selectedCards.length === 0) ? transactions : filteredTx
-
-  return result
 }

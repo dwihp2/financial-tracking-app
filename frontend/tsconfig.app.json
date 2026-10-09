@@ -20,8 +20,9 @@
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
-    /* Path alias — shadcn/ui convention (`@/components/ui/...`) */
-    "baseUrl": ".",
+    /* Path alias — shadcn/ui convention (`@/components/ui/...`).
+       No `baseUrl`: TypeScript 6 deprecates it, and `paths` already
+       resolves relative to this tsconfig file. */
     "paths": {
       "@/*": ["./src/*"]
     },

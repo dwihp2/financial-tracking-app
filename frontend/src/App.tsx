@@ -1,16 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import dayjs from 'dayjs'
+import { Plus } from 'lucide-react'
+import { toast } from 'sonner'
+import AddTransactionDialog from '@/components/AddTransactionDialog'
 import FinancialSummary from '@/components/FinancialSummary'
 import Filter from '@/components/Filter'
 import TransactionTable from '@/components/TransactionTable'
 import ThemeToggle from '@/components/ThemeToggle'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { listTransactions } from '@/lib/api'
+import { createTransaction, listTransactions } from '@/lib/api'
 import { isMoneyIn, isMoneyOut, summarize } from '@/lib/money'
 import { DEFAULT_FILTERS } from '@/types'
-import type { FilterState, Transaction } from '@/types'
+import type { FilterState, NewTransaction, Transaction } from '@/types'
 
 type Theme = 'light' | 'dark'
 
@@ -110,6 +114,33 @@ export default function App() {
   const handleToggleTheme = () =>
     setTheme((previous) => (previous === 'dark' ? 'light' : 'dark'))
 
+  /**
+   * CREATE — the worked end-to-end path.
+   *
+   * TODO (exercise — update): `handleUpdateTransaction(id, patch)` should
+   *   call an `updateTransaction` in lib/api.ts, then replace the matching row
+   *   in state, then toast. Same shape as below.
+   * TODO (exercise — delete): `handleDeleteTransaction(id)` should call
+   *   `deleteTransaction`, then filter the row out of state, then toast with
+   *   an Undo action. See CRUD-EXERCISE.md.
+   */
+  const handleAddTransaction = async (input: NewTransaction) => {
+    try {
+      const created = await createTransaction(input)
+      // App stays the single owner of `transactions`.
+      setTransactions((previous) => [created, ...previous])
+      toast.success('Transaction added', {
+        description: `${created.cardName} · ${created.category}`,
+      })
+    } catch (error) {
+      toast.error('Could not add the transaction', {
+        description: error instanceof Error ? error.message : undefined,
+      })
+      // Re-throw so the dialog knows to stay open and keep the user's input.
+      throw error
+    }
+  }
+
   return (
     <TooltipProvider>
       <div className="min-h-svh bg-background text-foreground">
@@ -131,7 +162,12 @@ export default function App() {
               role="alert"
               className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
             >
-              Could not load transactions: {loadError}
+              <p className="font-medium">Could not load transactions</p>
+              <p className="mt-1 text-destructive/90">{loadError}</p>
+              <p className="mt-2 text-destructive/80">
+                The app normally falls back to the bundled seed data. If you started
+                the backend, check that <code>GET /api/transactions</code> exists.
+              </p>
             </div>
           ) : isLoading ? (
             <LoadingState />
@@ -155,7 +191,22 @@ export default function App() {
                 onClear={handleClearFilters}
               />
 
-              <TransactionTable transactions={filteredTransactions} />
+              <TransactionTable
+                transactions={filteredTransactions}
+                actions={
+                  <AddTransactionDialog
+                    cards={cards}
+                    categories={categories}
+                    onSubmit={handleAddTransaction}
+                    trigger={
+                      <Button size="sm">
+                        <Plus data-icon="inline-start" />
+                        Add transaction
+                      </Button>
+                    }
+                  />
+                }
+              />
             </>
           )}
         </main>

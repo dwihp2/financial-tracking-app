@@ -29,6 +29,7 @@ interface TransactionTableProps {
   transactions: Transaction[]
   /** Optional header slot — used for the "Add transaction" button. */
   actions?: ReactNode
+  rowActions?: (transaction: Transaction) => ReactNode
 }
 
 /** Local formatting — currency, e.g. "$12.00". */
@@ -44,7 +45,7 @@ function formatDate(isoDate: string): string {
   return dayjs(isoDate).format('MMM D, YYYY')
 }
 
-export default function TransactionTable({ transactions, actions }: TransactionTableProps) {
+export default function TransactionTable({ transactions, actions, rowActions }: TransactionTableProps) {
   // Local display concern: newest transactions first.
   const sorted = [...transactions].sort(
     (a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf(),
@@ -65,6 +66,7 @@ export default function TransactionTable({ transactions, actions }: TransactionT
         {actions}
       </div>
 
+      {/* Empty state */}
       {sorted.length === 0 ? (
         <Empty className="py-12">
           <EmptyHeader>
@@ -100,11 +102,8 @@ export default function TransactionTable({ transactions, actions }: TransactionT
                 <th scope="col" className="px-5 py-3 text-right font-medium">
                   Amount
                 </th>
-                {/*
-                  TODO (exercise — update/delete): add a right-aligned "Actions"
-                  column here holding a <DropdownMenu> per row (Edit / Delete).
-                  See CRUD-EXERCISE.md.
-                */}
+                <th scope="col" className="px-5 py-3 text-right font-medium">
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -143,6 +142,15 @@ export default function TransactionTable({ transactions, actions }: TransactionT
                     >
                       {moneyIn ? '+' : '-'}
                       {formatCurrency(t.amount, t.currency)}
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <div className="flex justify-end gap-2">
+                        {/*
+                          The "Edit" and "Delete" buttons are passed down from App
+                          as `actions` so that the table itself remains stateless.
+                        */}
+                        {rowActions?.(t)}
+                      </div>
                     </td>
                   </tr>
                 )

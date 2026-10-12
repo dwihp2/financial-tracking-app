@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import dayjs from 'dayjs'
-import { Plus } from 'lucide-react'
+import { Plus, EllipsisVertical } from 'lucide-react'
 import { toast } from 'sonner'
 import AddTransactionDialog from '@/components/AddTransactionDialog'
 import FinancialSummary from '@/components/FinancialSummary'
@@ -11,12 +11,20 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { createTransaction, listTransactions } from '@/lib/api'
+import { createTransaction, deleteTransaction, listTransactions, updateTransaction } from '@/lib/api'
 import { isMoneyIn, isMoneyOut, summarize } from '@/lib/money'
 import { DEFAULT_FILTERS } from '@/types'
-import type { FilterState, NewTransaction, Transaction } from '@/types'
+import type { FilterState, NewTransaction, Transaction, TransactionPatch } from '@/types'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from './components/ui/dropdown-menu'
+import { DeleteTransactionDialog } from './components/DeleteTransactionDialog'
+
 
 type Theme = 'light' | 'dark'
+
+/** The shared transaction dialog: creating a row, editing one, or closed. */
+type TransactionDialogState =
+  | { mode: 'create' }
+  | { mode: 'edit'; transaction: Transaction }
 
 /** Local: saved theme wins, otherwise follow the OS preference. */
 function getInitialTheme(): Theme {
@@ -38,8 +46,23 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
 
+
+  /**
+   * Which flavour the shared transaction dialog is in — `null` means closed.
+   * App owns this state (not the dialog) because the row menu unmounts the
+   * moment an item is picked; the dialog used to live inside that menu and
+   * closed itself in the same click.
+   */
+  const [dialogState, setDialogState] = useState<TransactionDialogState | null>(null)
   /** Filter state. See DEFAULT_FILTERS in types. */
   const [filterState, setFilterState] = useState<FilterState>(DEFAULT_FILTERS)
+
+  /**
+   * The row pending deletion — `null` means the confirm dialog is closed.
+   * Storing the row (not just a boolean) is what lets the dialog delete the
+   * row the user actually picked.
+   */
+  const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null)
 
   /** UI chrome state — also owned here so there is a single source of truth. */
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
@@ -114,16 +137,6 @@ export default function App() {
   const handleToggleTheme = () =>
     setTheme((previous) => (previous === 'dark' ? 'light' : 'dark'))
 
-  /**
-   * CREATE — the worked end-to-end path.
-   *
-   * TODO (exercise — update): `handleUpdateTransaction(id, patch)` should
-   *   call an `updateTransaction` in lib/api.ts, then replace the matching row
-   *   in state, then toast. Same shape as below.
-   * TODO (exercise — delete): `handleDeleteTransaction(id)` should call
-   *   `deleteTransaction`, then filter the row out of state, then toast with
-   *   an Undo action. See CRUD-EXERCISE.md.
-   */
   const handleAddTransaction = async (input: NewTransaction) => {
     try {
       const created = await createTransaction(input)
@@ -138,6 +151,57 @@ export default function App() {
       })
       // Re-throw so the dialog knows to stay open and keep the user's input.
       throw error
+    }
+  }
+
+  const handleUpdateTransaction = async (id: string, input: NewTransaction) => {
+    // `currency` is immutable on the backend (see TransactionPatch), so the
+    // patch carries the editable fields only.
+    const patch: TransactionPatch = {
+      date: input.date,
+      cardName: input.cardName,
+      category: input.category,
+      amount: input.amount,
+      isCredit: input.isCredit,
+    }
+
+    try {
+      const updated = await updateTransaction(id, patch)
+      setTransactions((previous) => previous.map((t) => (t.id === id ? updated : t)))
+      toast.success('Transaction updated', {
+        description: `${updated.cardName} · ${updated.category}`,
+      })
+    } catch (error) {
+      toast.error('Could not update the transaction', {
+        description: error instanceof Error ? error.message : undefined,
+      })
+      // Re-throw so the dialog knows to stay open and keep the user's changes.
+      throw error
+    }
+  }
+
+  /** Routed to the shared dialog: edit updates the row, create adds one. */
+  const handleDialogSubmit = async (input: NewTransaction) => {
+    if (dialogState?.mode === 'edit') {
+      await handleUpdateTransaction(dialogState.transaction.id, input)
+    } else {
+      await handleAddTransaction(input)
+    }
+  }
+
+  const handleDeleteTransaction = async (id: string) => {
+    try {
+      await deleteTransaction(id)
+      setTransactions((previous) => previous.filter((t) => t.id !== id))
+      toast.success('Transaction deleted', {
+        description: 'The transaction has been removed.',
+      })
+    } catch (error) {
+      toast.error('Could not delete the transaction', {
+        description: error instanceof Error ? error.message : undefined,
+      })
+    } finally {
+      setTransactionToDelete(null)
     }
   }
 
@@ -194,18 +258,57 @@ export default function App() {
               <TransactionTable
                 transactions={filteredTransactions}
                 actions={
-                  <AddTransactionDialog
-                    cards={cards}
-                    categories={categories}
-                    onSubmit={handleAddTransaction}
-                    trigger={
-                      <Button size="sm">
-                        <Plus data-icon="inline-start" />
-                        Add transaction
-                      </Button>
-                    }
-                  />
+                  <Button size="sm" onClick={() => setDialogState({ mode: 'create' })}>
+                    <Plus data-icon="inline-start" />
+                    Add transaction
+                  </Button>
                 }
+                rowActions={(transaction) => (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline">
+                        <EllipsisVertical />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      {/* Opens the shared dialog pre-filled with this row. */}
+                      <DropdownMenuItem
+                        onSelect={() => setDialogState({ mode: 'edit', transaction })}
+                      >
+                        Edit
+                      </DropdownMenuItem>
+                      {/* Opens the confirm dialog for this specific row. */}
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onSelect={() => setTransactionToDelete(transaction)}
+                      >
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              />
+
+              {/* One dialog instance serves the header button AND the row
+                  menu — the menu can close without taking the dialog with it. */}
+              <AddTransactionDialog
+                cards={cards}
+                categories={categories}
+                open={dialogState !== null}
+                onOpenChange={(next) => {
+                  if (!next) setDialogState(null)
+                }}
+                initialValue={dialogState?.mode === 'edit' ? dialogState.transaction : undefined}
+                onSubmit={handleDialogSubmit}
+              />
+
+              {/* Delete dialog — acts on the row stored in `transactionToDelete`. */}
+              <DeleteTransactionDialog
+                open={transactionToDelete !== null}
+                onDelete={() => {
+                  if (transactionToDelete) handleDeleteTransaction(transactionToDelete.id)
+                }}
+                onCancel={() => setTransactionToDelete(null)}
               />
             </>
           )}
@@ -271,7 +374,7 @@ function applyFilters(transactions: Transaction[], filter: FilterState): Transac
       search === ''
         ? true
         : tx.cardName.toLowerCase().includes(search) ||
-          tx.category.toLowerCase().includes(search)
+        tx.category.toLowerCase().includes(search)
 
     return matchesMonth && matchesCard && matchesCategory && matchesDirection && matchesSearch
   })

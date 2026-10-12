@@ -47,7 +47,7 @@ async function isBackendReachable(): Promise<boolean> {
   if (!backendReachable) {
     console.info(
       '[api] Backend not reachable — falling back to the bundled seed data. ' +
-        'Run `npm run dev` in backend/ to use the live API.',
+      'Run `npm run dev` in backend/ to use the live API.',
     )
   }
 
@@ -114,17 +114,22 @@ export async function updateTransaction(
   id: string,
   patch: TransactionPatch,
 ): Promise<Transaction> {
-  const response = await fetch(`${API_BASE}/transactions/${id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(patch),
-  })
+  if (await isBackendReachable()) {
+    const response = await fetch(`${API_BASE}/transactions/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    })
 
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response, 'Could not update the transaction'))
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, 'Could not update the transaction'))
+    }
+
+    return (await response.json()) as Transaction
   }
 
-  return (await response.json()) as Transaction
+  await delay(LATENCY_MS)
+  return { ...patch, id } as Transaction
 }
 
 /**
@@ -136,11 +141,17 @@ export async function updateTransaction(
  * TODO (exercise — delete): no offline branch yet — see updateTransaction above.
  */
 export async function deleteTransaction(id: string): Promise<Transaction> {
-  const response = await fetch(`${API_BASE}/transactions/${id}`, { method: 'DELETE' })
+  if (await isBackendReachable()) {
+    const response = await fetch(`${API_BASE}/transactions/${id}`, { method: 'DELETE' })
 
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response, 'Could not delete the transaction'))
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, 'Could not delete the transaction'))
+    }
+
+    return (await response.json()) as Transaction
   }
 
-  return (await response.json()) as Transaction
+  await delay(LATENCY_MS)
+  throw new Error('Offline mode: cannot delete a transaction without the backend')
+
 }

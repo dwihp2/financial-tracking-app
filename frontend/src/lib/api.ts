@@ -5,15 +5,14 @@
  * of the app never knows (or cares) where the rows come from.
  *
  * Two modes:
- *  - LIVE      — the Express backend in `backend/` is reachable, so reads and
- *                writes go through `/api/...` (proxied by Vite in dev).
- *  - OFFLINE   — nothing is listening on :3001, so reads fall back to the
- *                bundled JSON seed and writes are applied locally. This keeps
- *                the demo working with a single `npm run dev`.
+ *  - LIVE      the Express backend in `backend/` is reachable, so reads and
+ *              writes go through `/api/...` (proxied by Vite in dev).
+ *  - OFFLINE   nothing is listening on :3001, so reads use the bundled JSON
+ *              seed. Create and update are applied in memory. Delete throws,
+ *              because the seed is read-only and there is nothing to delete.
  *
  * API surface: listTransactions, createTransaction, updateTransaction,
- * deleteTransaction. The first two have offline branches; the last two still
- * need them — see the TODO on each.
+ * deleteTransaction.
  */
 import transactionsData from '@/data/transactions.json'
 import type { NewTransaction, Transaction, TransactionPatch } from '@/types'
@@ -105,10 +104,13 @@ export async function createTransaction(input: NewTransaction): Promise<Transact
 /**
  * Update a transaction.
  *
- * TODO (exercise — update): unlike createTransaction above, this has no
- * offline branch yet, so with the backend stopped it throws a raw
- * "Failed to fetch" instead of degrading gracefully. Mirror the
- * `isBackendReachable()` pattern from createTransaction to fix that.
+ * Offline: returns the patched fields merged over `id`, which is NOT the same
+ * shape the live API returns. The API echoes the whole row; this drops
+ * `currency`, because a TransactionPatch never carries it. The table survives
+ * only because `formatCurrency(amount, currency = 'USD')` has a default.
+ *
+ * TODO (exercise): offline updates should return a complete row. Pass the
+ * existing transaction in, or keep a local copy of the seed to patch.
  */
 export async function updateTransaction(
   id: string,
@@ -138,7 +140,9 @@ export async function updateTransaction(
  * The API answers `200` with the row (not `204`), deliberately: having the
  * removed row in hand is what lets the caller offer an Undo without a re-fetch.
  *
- * TODO (exercise — delete): no offline branch yet — see updateTransaction above.
+ * Offline: throws. The bundled seed is read-only, so there is nothing to
+ * delete from. This is the one operation that does not work without the
+ * backend, which is why the module header lists it as an exception.
  */
 export async function deleteTransaction(id: string): Promise<Transaction> {
   if (await isBackendReachable()) {
@@ -152,6 +156,5 @@ export async function deleteTransaction(id: string): Promise<Transaction> {
   }
 
   await delay(LATENCY_MS)
-  throw new Error('Offline mode: cannot delete a transaction without the backend')
-
+  throw new Error('Cannot delete a transaction while the backend is offline.')
 }

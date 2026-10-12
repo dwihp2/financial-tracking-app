@@ -26,10 +26,12 @@ codebase rather than feature volume.
   All filters combine with AND and apply to both the table and the summary.
 - **Transaction table** — newest first, hand-rolled `<table>` (not the shadcn
   DataTable recipe), with an empty state and horizontal scroll on small screens.
-- **Create** — add a transaction through a validated dialog.
+- **Create, edit and delete** — one shared dialog serves both create and edit,
+  driven by an optional `initialValue`. Deleting asks for confirmation first.
 - **Light / dark theme** — token-based, persisted, respects the OS preference.
-- **Works offline** — if the API is not running the UI falls back to bundled
-  seed data, so a single `npm run dev` is enough to demo it.
+- **Works offline** — if the API is not running the UI reads bundled seed data,
+  so a single `npm run dev` is enough to demo it. Listing, creating and editing
+  work; deleting needs the API, because the bundled seed is read-only.
 
 ## Tech stack
 
@@ -73,8 +75,8 @@ Base URL `http://localhost:3001`.
 | `POST` | `/api/transactions` | ✅ zod-validated, `400` on invalid body |
 | `GET` | `/api/cards` | ✅ distinct card names |
 | `GET` | `/api/categories` | ✅ distinct categories |
-| `PATCH` | `/api/transactions/:id` | ⬜ **your task** — `501` stub |
-| `DELETE` | `/api/transactions/:id` | ⬜ **your task** — `501` stub |
+| `PATCH` | `/api/transactions/:id` | ✅ zod-validated, `200` + the updated row. `currency` is immutable. |
+| `DELETE` | `/api/transactions/:id` | ✅ `200` + the removed row, so Undo needs no re-fetch |
 
 Errors use `{ "error": { "message": string, "details"?: unknown } }`.
 
@@ -164,11 +166,14 @@ asks for a hand-rolled table rather than the TanStack-based shadcn DataTable.
 
 ## Roadmap
 
-- [ ] `PATCH` / `DELETE` endpoints and the edit/delete UI — see
-      [CRUD-EXERCISE.md](CRUD-EXERCISE.md)
+- [x] `PATCH` / `DELETE` endpoints and the edit/delete UI
+- [ ] Undo for delete, and `AlertDialog` in place of the plain `Dialog` — see
+      [CRUD-EXERCISE.md](CRUD-EXERCISE.md) Task E
 - [ ] Move the data from the JSON store into Postgres via Prisma — see
       [DATABASE-EXERCISE.md](DATABASE-EXERCISE.md)
-- [ ] Optimistic delete with undo (`useOptimistic`)
+- [ ] Optimistic delete with rollback (`useOptimistic`)
+- [ ] Put `DeleteTransactionDialog` on the repo's conventions (single quotes,
+      no semicolons, `@/` imports)
 - [ ] Bulk select and bulk actions
 - [ ] CSV import / export of the filtered rows
 - [ ] Charts: spend by category, money in vs out over time (`shadcn/chart`)

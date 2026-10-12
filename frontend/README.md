@@ -21,7 +21,8 @@ npm run preview   # serve the production build
 src/
 ├── components/
 │   ├── ui/                     # shadcn/ui primitives (generated — avoid hand-editing)
-│   ├── AddTransactionDialog.tsx  # CREATE — the worked CRUD reference
+│   ├── AddTransactionDialog.tsx  # CREATE + EDIT — one shared form, via initialValue
+│   ├── DeleteTransactionDialog.tsx  # DELETE confirmation
 │   ├── FinancialSummary.tsx      # Money In / Money Out / Balance cards
 │   ├── Filter.tsx                # month, direction, search, card, category
 │   ├── ThemeToggle.tsx           # light/dark switch
@@ -30,7 +31,7 @@ src/
 │   ├── api.ts                  # data-access seam: live API or seed fallback
 │   ├── money.ts                # isMoneyIn / isMoneyOut / computeMoney / summarize
 │   └── utils.ts                # cn() — re-exported from shadcn
-├── types/index.ts              # Transaction, FilterState, Summary, DEFAULT_FILTERS
+├── types/index.ts              # Transaction, NewTransaction, TransactionPatch, FilterState
 ├── data/transactions.json      # offline seed (fallback when the API is down)
 ├── App.tsx                     # owns ALL app state and the global calculations
 └── index.css                   # Tailwind v4 theme tokens (light + dark)

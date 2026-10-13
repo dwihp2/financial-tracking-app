@@ -13,7 +13,7 @@ export default defineConfig({
     },
   },
   server: {
-    // The Express API (backend/) runs on :3001. See CRUD-EXERCISE.md.
+    // The Express API (backend/) runs on :3001.
     proxy: {
       '/api': 'http://localhost:3001',
     },

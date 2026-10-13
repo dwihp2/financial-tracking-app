@@ -27,8 +27,7 @@ import type { NewTransaction, Transaction } from '@/types'
 
 /**
  * AddTransactionDialog — the shared transaction form, used for BOTH create
- * and edit (the reuse CRUD-EXERCISE.md Task D asks for, instead of a
- * copy-pasted twin):
+ * and edit, instead of a copy-pasted twin:
  *
  *  - create: no `initialValue`; the form starts empty and App's onSubmit POSTs.
  *  - edit:   `initialValue` is the row; the form starts pre-filled and App's
@@ -41,8 +40,8 @@ import type { NewTransaction, Transaction } from '@/types'
  *
  * STATE NOTE: the draft below is deliberately component-local. It is
  * ephemeral form state, discarded the moment the dialog closes — it is not
- * app data. The transaction itself still lives in App (see the exercise rule
- * in requirements.md §3), and App remains the only owner of `transactions`.
+ * app data. The transaction itself still lives in App, which remains the only
+ * owner of `transactions`.
  */
 interface AddTransactionDialogProps {
   /** Existing card names, used to populate the card select. */

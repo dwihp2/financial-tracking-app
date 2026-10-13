@@ -2,8 +2,7 @@
 
 React 19 + Vite + TypeScript + Tailwind v4 + shadcn/ui.
 
-See the [root README](../README.md) for the full picture, and
-[CRUD-EXERCISE.md](../CRUD-EXERCISE.md) for the backend/CRUD tasks.
+See the [root README](../README.md) for the full picture.
 
 ## Scripts
 
@@ -40,7 +39,9 @@ src/
 ## Conventions
 
 - **All app state lives in `App.tsx`** and flows down as props. No context, no
-  global store. See `requirements.md` §3 for the two documented exceptions.
+  global store. Two exceptions are deliberate: `AddTransactionDialog` owns its
+  ephemeral form draft, and the filter controls report a whole `FilterState`
+  through a single `onFilterChange(next)`.
 - Import UI primitives from `@/components/ui/...`, not from a package.
 - Prefer semantic colour tokens (`bg-card`, `text-muted-foreground`,
   `text-income`, `text-expense`) over raw palette classes (`bg-slate-100`).

@@ -11,8 +11,7 @@
  *   npm run db:generate
  *
  * Nothing imports this module yet — that is why the server still starts
- * happily without it. Wiring `src/store.js` onto Prisma is the last task in
- * DATABASE-EXERCISE.md.
+ * happily without it. Wiring `src/store.js` onto Prisma is the last task.
  */
 import 'dotenv/config'
 import { PrismaPg } from '@prisma/adapter-pg'

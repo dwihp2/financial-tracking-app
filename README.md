@@ -87,8 +87,8 @@ it. `store.js` persists with an atomic write.
 ## Database (Prisma + Postgres)
 
 The Postgres/Prisma scaffolding is in place and the connection is verified, but
-the **API does not use it yet** — it still reads the JSON store above. Moving it
-across is [DATABASE-EXERCISE.md](DATABASE-EXERCISE.md).
+the **API does not use it yet** — it still reads the JSON store above. Moving the
+store across is the remaining piece of work.
 
 | Thing | Where |
 | --- | --- |
@@ -122,9 +122,6 @@ node --input-type=module -e "import('./src/db.js').then(async (m) => {
 
 ```
 financial-tracking-app/
-├── requirements.md          # the original exercise brief
-├── CRUD-EXERCISE.md         # the remaining PATCH/DELETE + edit/delete tasks
-├── DATABASE-EXERCISE.md     # the Postgres + Prisma migration tasks
 ├── transaction.json         # pristine 1209-row seed (source of truth)
 ├── docs/                    # screenshots
 ├── frontend/
@@ -134,7 +131,7 @@ financial-tracking-app/
 │       ├── types/           # Transaction, FilterState, Summary
 │       └── App.tsx          # owns ALL app state
 └── backend/
-    ├── prisma/schema.prisma # model left as a TODO (see DATABASE-EXERCISE.md)
+    ├── prisma/schema.prisma # model left as a TODO
     ├── prisma7.config.ts    # Prisma 7 config; loads .env
     └── src/
         ├── index.js         # Express app, error handling
@@ -149,7 +146,10 @@ financial-tracking-app/
 
 **State lives in `App.tsx`.** `transactions`, `filterState` and `theme` are all
 owned by the root component and passed down as props — no context, no store.
-`requirements.md` §3 documents the two deliberate exceptions.
+Two exceptions are deliberate. `AddTransactionDialog` owns its ephemeral form
+draft, which is discarded when the dialog closes and is not app data. And the
+filter controls report a whole `FilterState` through a single
+`onFilterChange(next)` rather than one callback per control.
 
 **The summary is derived, not stored.** An earlier version kept `moneyIn` /
 `moneyOut` / `balance` in `useState` and updated them from a `useEffect`. Because
@@ -167,8 +167,7 @@ asks for a hand-rolled table rather than the TanStack-based shadcn DataTable.
 ## Roadmap
 
 - [x] `PATCH` / `DELETE` endpoints and the edit/delete UI
-- [ ] Move the data from the JSON store into Postgres via Prisma — see
-      [DATABASE-EXERCISE.md](DATABASE-EXERCISE.md)
+- [ ] Move the data from the JSON store into Postgres via Prisma
 - [ ] Optimistic delete with rollback (`useOptimistic`)
 - [ ] Put `DeleteTransactionDialog` on the repo's conventions (single quotes,
       no semicolons, `@/` imports)

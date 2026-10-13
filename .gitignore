@@ -31,3 +31,8 @@ pnpm-debug.log*
 
 # Local scratch (npm cache / headless-browser profiles used in sandboxed environments)
 .tmp-*/
+
+# Exercise briefs — kept locally on purpose, never published
+CRUD-EXERCISE.md
+DATABASE-EXERCISE.md
+requirements.md

@@ -69,7 +69,7 @@ export default function App() {
 
   // ---- Global calculation: load the data ----
   // Routed through lib/api.ts so that swapping the bundled JSON for the
-  // Express backend later is a one-file change. See CRUD-EXERCISE.md.
+  // Express backend later is a one-file change.
   useEffect(() => {
     let cancelled = false
 

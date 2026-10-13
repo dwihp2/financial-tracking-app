@@ -190,8 +190,8 @@ router.delete('/transactions/:id', async (req, res) => {
     return res.status(404).json({ error: { message: `No transaction with id "${req.params.id}"` } })
   }
 
-  // 200 + the removed row (rather than 204 + no body) so the client can offer
-  // an Undo without a second GET. Keep frontend/src/lib/api.ts in step.
+  // 200 + the removed row (rather than 204 + no body) so the client receives
+  // what was removed without a second GET. Keep frontend/src/lib/api.ts in step.
   res.status(200).json(deleted)
 })
 

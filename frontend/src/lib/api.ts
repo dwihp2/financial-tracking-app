@@ -137,8 +137,8 @@ export async function updateTransaction(
 /**
  * Delete a transaction and return the removed row.
  *
- * The API answers `200` with the row (not `204`), deliberately: having the
- * removed row in hand is what lets the caller offer an Undo without a re-fetch.
+ * The API answers `200` with the row (not `204`), deliberately: the caller
+ * gets back exactly what was removed, without a re-fetch.
  *
  * Offline: throws. The bundled seed is read-only, so there is nothing to
  * delete from. This is the one operation that does not work without the

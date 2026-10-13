@@ -76,7 +76,7 @@ Base URL `http://localhost:3001`.
 | `GET` | `/api/cards` | ✅ distinct card names |
 | `GET` | `/api/categories` | ✅ distinct categories |
 | `PATCH` | `/api/transactions/:id` | ✅ zod-validated, `200` + the updated row. `currency` is immutable. |
-| `DELETE` | `/api/transactions/:id` | ✅ `200` + the removed row, so Undo needs no re-fetch |
+| `DELETE` | `/api/transactions/:id` | ✅ `200` + the removed row |
 
 Errors use `{ "error": { "message": string, "details"?: unknown } }`.
 
@@ -167,8 +167,6 @@ asks for a hand-rolled table rather than the TanStack-based shadcn DataTable.
 ## Roadmap
 
 - [x] `PATCH` / `DELETE` endpoints and the edit/delete UI
-- [ ] Undo for delete, and `AlertDialog` in place of the plain `Dialog` — see
-      [CRUD-EXERCISE.md](CRUD-EXERCISE.md) Task E
 - [ ] Move the data from the JSON store into Postgres via Prisma — see
       [DATABASE-EXERCISE.md](DATABASE-EXERCISE.md)
 - [ ] Optimistic delete with rollback (`useOptimistic`)
